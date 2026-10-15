@@ -70,7 +70,7 @@ w.append(h('div',{class:'mini',style:'text-align:center;margin-top:30px'},'Marin
 if(!editing)w.append(h('div',{style:'text-align:center;margin-top:6px'},h('a',{style:'font-size:11px;color:var(--mute);cursor:pointer;text-decoration:underline',on:{click:login}},'Área da Marina')));return w}
 function login(){const i=h('input',{type:'password',placeholder:'Senha',inputmode:'numeric'}),ov=h('div',{class:'ov',style:'align-items:center',on:{click:e=>{if(e.target===ov)ov.remove()}}});
 const ok=()=>{ov.remove();editing=true;canEdit=true;render();scrollTo(0,0)},bad=()=>{i.value='';i.placeholder='Senha incorreta'};
-const go=async()=>{if(!API){i.value===(S.pin||'1234')?ok():bad();return}try{const r=await fetch('/api/catalog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'check',pin:i.value})});if(r.ok){PIN=i.value;ok()}else bad()}catch(e){i.value='';i.placeholder='Sem conexão. Tente de novo.'}};i.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+const go=async()=>{if(!API){i.value===(S.pin||'1234')?ok():bad();return}try{const r=await fetch('/api/catalog',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'check',pin:i.value})});if(r.ok){PIN=i.value;await loadRev(true);ok()}else bad()}catch(e){i.value='';i.placeholder='Sem conexão. Tente de novo.'}};i.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
 ov.append(h('div',{class:'sheet'},h('h3',{style:'font-size:22px'},'Área da Marina'),h('label',{},'Senha'),i,h('div',{class:'row',style:'margin-top:14px'},h('button',{class:'alt',on:{click:()=>ov.remove()}},'Cancelar'),h('button',{on:{click:go}},'Entrar'))));document.body.append(ov);i.focus()}
 /* ===== pedido de agendamento pelo WhatsApp ===== */
 function book(m,i){const st={kind:'Aplicação',date:'',time:'',name:'',city:''};const ov=h('div',{class:'ov',on:{click:e=>{if(e.target===ov)ov.remove()}}}),sh=h('div',{class:'sheet'});ov.append(sh);document.body.append(ov);
@@ -172,14 +172,33 @@ const c=h('div',{class:'card'},h('div',{style:'display:flex;gap:2px'},pic('befor
 if(editing)c.append(h('div',{class:'ed'},h('label',{},'Legenda (opcional)'),h('input',{value:it.caption||'',on:{change:e=>{it.caption=e.target.value;touch();render()}}}),h('div',{class:'row',style:'gap:6px;margin-top:8px'},...upBtn(it,'before','antes'),...upBtn(it,'after','depois')),h('button',{class:'alt sm',style:'margin-top:10px',on:{click:()=>{if(confirm('Excluir este antes e depois?')){S.gallery.splice(i,1);touch();render()}}}},'Excluir')));
 g.append(c)});w.append(g);
 if(editing)w.append(h('div',{style:'text-align:center;margin-top:18px'},h('button',{on:{click:()=>{G.push({before:null,after:null,caption:''});touch();render()}}},'+ Antes e depois')));return w}
-/* ===== depoimentos ===== */
-function reviewsSec(){const Rv=S.reviews||(S.reviews=[]);if(!Rv.length&&!editing)return h('div');const w=h('div',{style:'margin-top:50px'});
-w.append(h('h2',{style:'text-align:center;font-size:26px;letter-spacing:.06em;text-transform:uppercase'},'Depoimentos'),h('p',{class:'sub',style:'margin:4px 0 18px'},'O que dizem as clientes da Marina'));
-const g=h('div',{class:'grid'});
-Rv.forEach((r,i)=>{const c=h('div',{class:'card'},h('div',{class:'cb',style:'padding:22px 20px'},h('p',{style:'font:italic 400 17px/1.5 Lora,serif;margin:0 0 12px'},'“'+r.text+'”'),h('div',{class:'tag'},r.name)));
-if(editing)c.append(h('div',{class:'ed'},h('label',{},'Nome da cliente'),h('input',{value:r.name,on:{change:e=>{r.name=e.target.value;touch();render()}}}),h('label',{},'Depoimento (use só textos que a cliente autorizou)'),h('textarea',{rows:3,on:{change:e=>{r.text=e.target.value;touch();render()}}},r.text),h('button',{class:'alt sm',style:'margin-top:10px',on:{click:()=>{if(confirm('Excluir este depoimento?')){S.reviews.splice(i,1);touch();render()}}}},'Excluir')));
-g.append(c)});w.append(g);
-if(editing)w.append(h('div',{style:'text-align:center;margin-top:18px'},h('button',{on:{click:()=>{Rv.push({name:'Nome da cliente',text:'Escreva aqui o depoimento.'});touch();render()}}},'+ Depoimento')));return w}
+/* ===== avaliações das clientes ===== */
+let REV=[];
+async function loadRev(admin){try{const r=await fetch('/api/reviews',{cache:'no-store',headers:admin&&PIN?{'x-pin':PIN}:{}});if(r.ok)REV=(await r.json()).reviews||[]}catch(e){}}
+const stars=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+const fdate=d=>{try{return new Date(d).toLocaleDateString('pt-BR')}catch(e){return ''}};
+async function revAct(action,id){try{const r=await fetch('/api/reviews',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pin:PIN,action,id})});if(!r.ok)throw new Error('erro '+r.status);await loadRev(true);render()}catch(e){alert('Não consegui: '+e.message)}}
+function reviewsSec(){if(!API)return h('div');const ap=REV.filter(r=>r.approved),w=h('div',{style:'margin-top:50px'});
+const avg=ap.length?ap.reduce((a,r)=>a+r.rating,0)/ap.length:0;
+w.append(h('h2',{style:'text-align:center;font-size:26px;letter-spacing:.06em;text-transform:uppercase'},'Avaliações'),
+ap.length?h('p',{class:'sub',style:'margin:6px 0 4px'},h('span',{style:'color:var(--rose);font-size:20px;letter-spacing:2px'},stars(Math.round(avg))),' ',avg.toFixed(1).replace('.',',')+' · '+ap.length+(ap.length>1?' avaliações':' avaliação')):h('p',{class:'sub',style:'margin:6px 0 4px'},'Conte como foi a sua experiência'),
+h('div',{style:'text-align:center;margin:10px 0 20px'},h('button',{on:{click:rsheet}},'Deixar minha avaliação')));
+const shown=editing?REV:ap;if(shown.length){const g=h('div',{class:'grid'});
+shown.forEach(r=>{const c=h('div',{class:'card'},h('div',{class:'cb',style:'padding:20px 20px 16px'},h('div',{style:'color:var(--rose);font-size:18px;letter-spacing:2px;margin-bottom:6px'},stars(r.rating)),h('p',{style:'font:italic 400 16px/1.5 Lora,serif;margin:0 0 10px'},'“'+r.text+'”'),h('div',{class:'tag'},r.name+' · '+fdate(r.date))));
+if(editing)c.append(h('div',{class:'ed'},h('div',{class:'mini',style:'margin-bottom:8px'},r.approved?'Publicada no site':'⏳ Aguardando a sua aprovação'),h('div',{class:'row',style:'gap:6px'},r.approved?h('button',{class:'alt sm',on:{click:()=>revAct('unapprove',r.id)}},'Ocultar'):h('button',{class:'sm',on:{click:()=>revAct('approve',r.id)}},'Aprovar'),h('button',{class:'alt sm',on:{click:()=>{if(confirm('Excluir esta avaliação?'))revAct('delete',r.id)}}},'Excluir'))));
+g.append(c)});w.append(g)}
+return w}
+function rsheet(){const st={name:'',rating:0,text:'',website:''};const ov=h('div',{class:'ov',on:{click:e=>{if(e.target===ov)ov.remove()}}}),sh=h('div',{class:'sheet'});ov.append(sh);document.body.append(ov);
+const send=h('button',{style:'width:100%;margin-top:16px'},'Enviar avaliação'),chk=()=>{send.disabled=!(st.name.trim().length>1&&st.rating&&st.text.trim().length>4)};
+function draw(){sh.replaceChildren(h('h3',{style:'font-size:24px'},'Sua avaliação'),h('p',{class:'mini'},'Sua opinião ajuda outras clientes. Ela será publicada depois que a Marina aprovar.'),
+h('label',{},'Nota'),h('div',{class:'chips'},[1,2,3,4,5].map(n=>h('button',{class:'chip'+(st.rating===n?' on':''),style:'font-size:18px',on:{click:()=>{st.rating=n;draw()}}},n+' ★'))),
+h('label',{},'Seu nome'),h('input',{value:st.name,maxlength:60,placeholder:'Nome',on:{input:e=>{st.name=e.target.value;chk()}}}),
+h('label',{},'Como foi o atendimento?'),h('textarea',{rows:4,maxlength:600,placeholder:'Conte aqui…',on:{input:e=>{st.text=e.target.value;chk()}}},st.text),
+h('input',{type:'text',tabindex:'-1',autocomplete:'off','aria-hidden':'true',style:'position:absolute;left:-9999px;opacity:0',on:{input:e=>{st.website=e.target.value}}}),send,h('div',{style:'text-align:center;margin-top:12px'},h('button',{class:'alt sm',on:{click:()=>ov.remove()}},'Fechar')));chk()}
+send.addEventListener('click',async()=>{send.disabled=true;send.textContent='Enviando…';try{const r=await fetch('/api/reviews',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'submit',name:st.name,rating:st.rating,text:st.text,website:st.website})});
+if(r.status===429)throw new Error('Aguarde um minutinho antes de enviar outra avaliação.');if(!r.ok)throw new Error('Não foi possível enviar agora. Tente novamente.');
+sh.replaceChildren(h('div',{style:'text-align:center;padding:24px 0'},h('h3',{style:'font-size:26px;color:var(--rose)'},'Obrigada!'),h('p',{},'Sua avaliação foi enviada e será publicada após a aprovação da Marina.'),h('button',{class:'alt sm',on:{click:()=>ov.remove()}},'Fechar')))}catch(e){send.disabled=false;send.textContent='Enviar avaliação';alert(e.message)}});
+draw()}
 /* ===== criador de arte para o Instagram ===== */
 const AST={tpl:'Promoção',fmt:'feed',title:'Promoção de Novembro',sub:'Aplicação com valor especial para você renovar o olhar',big:'R$ 150',foot:'Válido até 30/11',photo:null};
 function allPhotos(){const c=S.cover;return [...S.models.flatMap(m=>m.photos),...(S.gallery||[]).flatMap(g=>[g.before,g.after]),c&&c.big,c&&c.small].filter(Boolean)}
@@ -215,5 +234,5 @@ if(st.foot)T(st.foot,W/2,y+4,'300 22px Poppins','#6f6265',1);
 T(S.insta||'',W/2,H-104,'300 26px Poppins','#4d4345',0);if(S.link)T(S.link.replace(/^https?:\/\//,'').replace(/\/$/,''),W/2,H-64,'400 22px Poppins','#A66A6E',0)}
 /* ===== início ===== */
 app.replaceChildren(h('p',{class:'sub',style:'margin-top:35vh'},'Carregando…'));
-(async()=>{try{const c=new AbortController(),t=setTimeout(()=>c.abort(),6000);const r=await fetch('/api/catalog',{cache:'no-store',signal:c.signal});clearTimeout(t);if(r.ok&&(r.headers.get('content-type')||'').includes('json')){API=true;const j=await r.json();if(j.data&&j.data.models)S=j.data;delete S.pin}}catch(e){}render()})();
+(async()=>{try{const c=new AbortController(),t=setTimeout(()=>c.abort(),6000);const r=await fetch('/api/catalog',{cache:'no-store',signal:c.signal});clearTimeout(t);if(r.ok&&(r.headers.get('content-type')||'').includes('json')){API=true;const j=await r.json();if(j.data&&j.data.models)S=j.data;delete S.pin;await loadRev(false)}}catch(e){}render()})();
 </script></body></html>
