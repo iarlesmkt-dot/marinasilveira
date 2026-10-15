@@ -1,0 +1,9 @@
+SITE DA MARINA (versão com salvamento direto no Netlify)
+
+Estrutura (não mude os nomes das pastas):
+  public/index.html            -> a página (catálogo + Área da Marina)
+  netlify/functions/*.mjs      -> o "cérebro" que guarda os dados e as fotos
+  netlify.toml, package.json   -> configurações do Netlify
+
+Senha inicial da Área da Marina: 1234 (troque no primeiro acesso).
+Passo a passo completo: veja a conversa com o Claude.
